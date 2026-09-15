@@ -307,6 +307,17 @@
 </div>
 
 <input type="file" id="fileInput" accept="image/*">
+<input type="file" id="fileInputCamera" accept="image/*" capture="environment">
+
+<div class="overlay" id="imgPickOverlay" onclick="if(event.target===this) closeImgPick()">
+  <div class="sheet">
+    <h2>Trocar imagem</h2>
+    <p>Escolha de onde pegar a nova imagem.</p>
+    <button class="opt" onclick="pickFromCamera()">📷 Tirar foto</button>
+    <button class="opt" onclick="pickFromGallery()">🖼️ Escolher da galeria / arquivos</button>
+    <button class="close" onclick="closeImgPick()">Cancelar</button>
+  </div>
+</div>
 
 <div class="overlay" id="shareOverlay" onclick="if(event.target===this) closeShare()">
   <div class="sheet">
@@ -400,10 +411,24 @@ window.addEventListener('orientationchange', fitPage);
 
 function chooseImage(box) {
   currentImgRole = box.getAttribute('data-role');
+  document.getElementById('imgPickOverlay').classList.add('open');
+}
+
+function closeImgPick() {
+  document.getElementById('imgPickOverlay').classList.remove('open');
+}
+
+function pickFromGallery() {
+  closeImgPick();
   document.getElementById('fileInput').click();
 }
 
-document.getElementById('fileInput').addEventListener('change', function(e) {
+function pickFromCamera() {
+  closeImgPick();
+  document.getElementById('fileInputCamera').click();
+}
+
+function handleImageFile(e) {
   const file = e.target.files[0];
   if (file && currentImgRole) {
     const reader = new FileReader();
@@ -416,7 +441,10 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     reader.readAsDataURL(file);
   }
   e.target.value = '';
-});
+}
+
+document.getElementById('fileInput').addEventListener('change', handleImageFile);
+document.getElementById('fileInputCamera').addEventListener('change', handleImageFile);
 
 /* ---------- sincronização ---------- */
 
