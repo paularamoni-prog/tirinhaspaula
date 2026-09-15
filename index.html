@@ -170,7 +170,7 @@
     border-radius: 3px;
   }
   [contenteditable="true"]:hover { border-color: #bbb; }
-  [contenteditable="true"]:focus { border-color: #2b6cb0; background: #f0f7ff; }
+  [contenteditable="true"]:focus { border-color: #2b6cb0; }
 
   /* alças de mover / redimensionar a caixa de texto */
   .box-handle {
@@ -204,6 +204,24 @@
     right: -13px;
     cursor: nwse-resize;
     background: #dd6b20;
+  }
+
+  /* redimensionar só na horizontal (largura) */
+  .resize-handle-h {
+    top: 50%;
+    right: -13px;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+    background: #319795;
+  }
+
+  /* redimensionar só na vertical (altura) */
+  .resize-handle-v {
+    bottom: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+    background: #805ad5;
   }
 
   .text-box.active .inner {
@@ -305,7 +323,8 @@
     .page:last-child { page-break-after: auto; break-after: auto; }
     [contenteditable="true"]:hover,
     [contenteditable="true"]:focus { border-color: transparent; background: transparent; }
-    .img-hint, .box-handle, .text-box.active .inner { display: none !important; outline: none !important; }
+    .img-hint, .box-handle { display: none !important; }
+    .text-box.active .inner { outline: none !important; }
   }
 </style>
 </head>
@@ -361,7 +380,7 @@
 </div>
 
 <div class="instructions">
-  <strong>Como usar:</strong> toque no texto para editá-lo — agora é uma única caixa por tirinha, use Enter para quebrar linha dentro dela. A alteração é copiada para as outras tirinhas. Para mudar fonte, tamanho, espaçamento entre linhas, negrito ou itálico: selecione um trecho e use a barra acima; sem seleção, o ajuste vale para a caixa inteira. Segure a bolinha <strong>azul</strong> no canto da caixa para <strong>movê-la</strong>, e a bolinha <strong>laranja</strong> para <strong>aumentar ou diminuir</strong> o tamanho da caixa. Toque nas imagens (logo à esquerda, ilustração à direita) para trocá-las. Em <strong>Compartilhar</strong> você gera o PDF e envia direto para WhatsApp, Drive, e-mail ou qualquer app do aparelho.
+  <strong>Como usar:</strong> toque no texto para editá-lo — agora é uma única caixa por tirinha, use Enter para quebrar linha dentro dela. A alteração é copiada para as outras tirinhas. Para mudar fonte, tamanho, espaçamento entre linhas, negrito ou itálico: selecione um trecho e use a barra acima; sem seleção, o ajuste vale para a caixa inteira. Segure a bolinha <strong>azul</strong> no canto da caixa para <strong>movê-la</strong>. Para redimensionar: bolinha <strong>verde-água</strong> na lateral muda só a <strong>largura</strong>, bolinha <strong>roxa</strong> embaixo muda só a <strong>altura</strong>, e a bolinha <strong>laranja</strong> no canto muda as duas juntas. Toque nas imagens (logo à esquerda, ilustração à direita) para trocá-las. Em <strong>Compartilhar</strong> você gera o PDF e envia direto para WhatsApp, Drive, e-mail ou qualquer app do aparelho.
 </div>
 
 <div class="page-wrap" id="pageWrap">
@@ -436,7 +455,9 @@ function createStrip(data) {
         <div class="content sync-text" data-field="content" contenteditable="true">${data.content}</div>
       </div>
       <div class="box-handle drag-handle" title="Mover caixa">✥</div>
-      <div class="box-handle resize-handle" title="Aumentar/diminuir caixa">⤡</div>
+      <div class="box-handle resize-handle-h" title="Aumentar/diminuir só a largura">↔</div>
+      <div class="box-handle resize-handle-v" title="Aumentar/diminuir só a altura">↕</div>
+      <div class="box-handle resize-handle" title="Aumentar/diminuir largura e altura juntas">⤡</div>
     </div>
     <div class="art-box" data-role="art" onclick="chooseImage(this)">
       <img src="${data.art}" alt="ilustração" crossorigin="anonymous">
@@ -548,10 +569,10 @@ function attachSyncListeners() {
 
 function attachBoxControls() {
   document.querySelectorAll('.text-box').forEach(box => {
-    const dragHandle = box.querySelector('.drag-handle');
-    const resizeHandle = box.querySelector('.resize-handle');
-    dragHandle.addEventListener('pointerdown', e => startDrag(e, box));
-    resizeHandle.addEventListener('pointerdown', e => startResize(e, box));
+    box.querySelector('.drag-handle').addEventListener('pointerdown', e => startDrag(e, box));
+    box.querySelector('.resize-handle').addEventListener('pointerdown', e => startResize(e, box, 'both'));
+    box.querySelector('.resize-handle-h').addEventListener('pointerdown', e => startResize(e, box, 'h'));
+    box.querySelector('.resize-handle-v').addEventListener('pointerdown', e => startResize(e, box, 'v'));
     box.addEventListener('pointerdown', () => setActiveBox(box));
   });
 }
@@ -590,7 +611,7 @@ function startDrag(e, box) {
   document.addEventListener('pointerup', up);
 }
 
-function startResize(e, box) {
+function startResize(e, box, mode) {
   e.preventDefault();
   e.stopPropagation();
   setActiveBox(box);
@@ -604,12 +625,18 @@ function startResize(e, box) {
   const MIN_W = 12, MIN_H = 15;
 
   function move(ev) {
-    const deltaXPct = (ev.clientX - startX) / stripRect.width * 100;
-    const deltaYPct = (ev.clientY - startY) / stripRect.height * 100;
-    const newW = Math.max(MIN_W, Math.min(100 - leftPct, startWidthPct + deltaXPct));
-    const newH = Math.max(MIN_H, Math.min(100 - topPct, startHeightPct + deltaYPct));
-    box.style.width = newW.toFixed(2) + '%';
-    box.style.height = newH.toFixed(2) + '%';
+    let newW = startWidthPct;
+    let newH = startHeightPct;
+    if (mode === 'both' || mode === 'h') {
+      const deltaXPct = (ev.clientX - startX) / stripRect.width * 100;
+      newW = Math.max(MIN_W, Math.min(100 - leftPct, startWidthPct + deltaXPct));
+      box.style.width = newW.toFixed(2) + '%';
+    }
+    if (mode === 'both' || mode === 'v') {
+      const deltaYPct = (ev.clientY - startY) / stripRect.height * 100;
+      newH = Math.max(MIN_H, Math.min(100 - topPct, startHeightPct + deltaYPct));
+      box.style.height = newH.toFixed(2) + '%';
+    }
   }
   function up() {
     document.removeEventListener('pointermove', move);
@@ -696,9 +723,13 @@ function applyStyle(prop, value) {
 }
 
 function applyLineHeight(value) {
-  if (!restoreSelection()) { toast('Toque primeiro na caixa de texto que você quer ajustar.'); return; }
+  if (!activeField) {
+    activeField = document.querySelector('.content');
+  }
+  if (!activeField) { toast('Nenhuma caixa de texto encontrada.'); return; }
   activeField.style.lineHeight = value;
   syncField(activeField);
+  updateScopeInfo();
 }
 
 function toggleFormat(cmd) {
@@ -749,6 +780,13 @@ document.getElementById('lineHeight').addEventListener('change', function() {
 });
 
 document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.text-box.active').forEach(b => b.classList.remove('active'));
+    const sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    return;
+  }
   if (!(e.ctrlKey || e.metaKey)) return;
   const key = e.key.toLowerCase();
   if (['b','i','u'].includes(key)) {
@@ -763,7 +801,15 @@ document.addEventListener('keydown', function(e) {
 
 /* ---------- impressão ---------- */
 
+function clearSelectionState() {
+  document.querySelectorAll('.text-box.active').forEach(b => b.classList.remove('active'));
+  const sel = window.getSelection();
+  if (sel) sel.removeAllRanges();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+
 function printSheet() {
+  clearSelectionState();
   const page = document.querySelector('.page');
   const prev = page.style.transform;
   page.style.transform = 'none';
@@ -786,6 +832,7 @@ function closeShare() { document.getElementById('shareOverlay').classList.remove
 
 async function renderCanvas() {
   if (typeof html2canvas === 'undefined') throw new Error('offline');
+  clearSelectionState();
   const page = document.querySelector('.page');
   const prev = page.style.transform;
   page.style.transform = 'none';
