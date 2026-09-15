@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tirinhas Editáveis - CEMEI</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #e5e5e5;
+    margin: 0;
+    padding: 12px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .bar {
+    max-width: 297mm;
+    margin: 0 auto 10px auto;
+    background: #fff;
+    padding: 10px 12px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .bar h1 {
+    font-size: 15px;
+    margin: 0 auto 0 0;
+    color: #333;
+    flex: 1 1 100%;
+  }
+
+  button {
+    background: #2b6cb0;
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    min-height: 42px;
+  }
+
+  button.secondary { background: #718096; }
+  button.share { background: #25925a; }
+  button:hover { opacity: .9; }
+  button:focus-visible { outline: 3px solid #90cdf4; outline-offset: 2px; }
+
+  .bar label { font-size: 13px; color: #444; }
+
+  .bar select {
+    padding: 9px 8px;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    min-height: 42px;
+  }
+
+  .sep { width: 1px; height: 26px; background: #ddd; margin: 0 2px; }
+
+  .fmt-b { font-weight: bold; }
+  .fmt-i { font-style: italic; }
+  .fmt-u { text-decoration: underline; }
+
+  .scope { font-size: 12px; color: #666; flex: 1 1 100%; }
+
+  .instructions {
+    max-width: 297mm;
+    margin: 0 auto 16px auto;
+    background: #fffbea;
+    border: 1px solid #f0d97a;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #555;
+  }
+
+  /* área que encolhe a folha em telas pequenas */
+  .page-wrap {
+    max-width: 297mm;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* Folha A4 deitada: 297mm x 210mm */
+  .page {
+    width: 297mm;
+    height: 210mm;
+    background: #fff;
+    padding: 12mm 16mm;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10mm;
+    transform-origin: top left;
+  }
+
+  /* Tirinha: 26,5cm x 3,5cm */
+  .strip {
+    border: 2px solid #000;
+    width: 265mm;
+    height: 35mm;
+    flex: 0 0 35mm;
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .strip .logo-box, .strip .art-box {
+    flex: 0 0 32mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 2mm;
+  }
+
+  .strip .logo-box img, .strip .art-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .strip .text-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2mm 6mm;
+    gap: 1.5mm;
+    min-width: 0;
+  }
+
+  .line1 { font-size: 12px; outline: none; }
+  .line2 { font-size: 17px; font-weight: bold; outline: none; }
+  .line3, .line4 { font-size: 11.5px; outline: none; }
+
+  [contenteditable="true"] {
+    border: 1px dashed transparent;
+    padding: 1px 3px;
+    border-radius: 3px;
+  }
+  [contenteditable="true"]:hover { border-color: #bbb; }
+  [contenteditable="true"]:focus { border-color: #2b6cb0; background: #f0f7ff; }
+
+  .img-hint {
+    position: absolute;
+    bottom: 2px;
+    font-size: 8px;
+    color: #999;
+    pointer-events: none;
+  }
+  .logo-box .img-hint { left: 2px; }
+  .art-box .img-hint { right: 2px; }
+
+  input[type=file] { display: none; }
+
+  /* modal de compartilhamento */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 50;
+    padding: 0;
+  }
+  .overlay.open { display: flex; }
+
+  .sheet {
+    background: #fff;
+    width: 100%;
+    max-width: 460px;
+    border-radius: 16px 16px 0 0;
+    padding: 18px 16px 22px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.25);
+  }
+  .sheet h2 { margin: 0 0 4px; font-size: 17px; color: #222; }
+  .sheet p { margin: 0 0 14px; font-size: 13px; color: #666; line-height: 1.45; }
+  .sheet .opt {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #f1f5f9;
+    color: #1a202c;
+    margin-bottom: 8px;
+    font-size: 15px;
+    padding: 13px 14px;
+  }
+  .sheet .opt:hover { background: #e2e8f0; opacity: 1; }
+  .sheet .close { width: 100%; background: #718096; margin-top: 6px; }
+
+  .status {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    background: #1a202c;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    display: none;
+    z-index: 60;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .status.show { display: block; }
+
+  @media (min-width: 900px) {
+    .bar h1 { flex: 1 1 auto; }
+    .scope { flex: 0 1 auto; margin-left: auto; text-align: right; }
+    .overlay { align-items: center; }
+    .sheet { border-radius: 16px; }
+  }
+
+  @media (max-width: 560px) {
+    body { padding: 8px; }
+    .bar { gap: 6px; padding: 10px; }
+    .bar button, .bar select { flex: 1 1 auto; }
+    .bar .sep { display: none; }
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; margin: 0; }
+    .bar, .instructions, .overlay, .status { display: none !important; }
+    .page-wrap { max-width: none; }
+    .page {
+      box-shadow: none;
+      margin: 0;
+      width: 297mm;
+      height: 210mm;
+      transform: none !important;
+      page-break-after: always;
+      break-after: page;
+    }
+    .page:last-child { page-break-after: auto; break-after: auto; }
+    [contenteditable="true"]:hover,
+    [contenteditable="true"]:focus { border-color: transparent; background: transparent; }
+    .img-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>📄 Tirinhas CEMEI — A4 deitada, 4 tirinhas de 26,5 × 3,5 cm</h1>
+  <button class="share" onclick="openShare()">📤 Compartilhar</button>
+  <button onclick="printSheet()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="secondary" onclick="resetAll()">↺ Restaurar padrão</button>
+</div>
+
+<div class="bar">
+  <label for="fontFamily">Fonte</label>
+  <select id="fontFamily">
+    <option value="">—</option>
+    <option value="Arial, Helvetica, sans-serif">Arial</option>
+    <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+    <option value="Verdana, Geneva, sans-serif">Verdana</option>
+    <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+    <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+    <option value="Georgia, serif">Georgia</option>
+    <option value="'Times New Roman', Times, serif">Times New Roman</option>
+    <option value="'Courier New', Courier, monospace">Courier New</option>
+    <option value="Impact, Charcoal, sans-serif">Impact</option>
+  </select>
+
+  <label for="fontSize">Tamanho</label>
+  <select id="fontSize"><option value="">—</option></select>
+
+  <div class="sep"></div>
+
+  <button class="fmt-b" onclick="toggleFormat('bold')" title="Negrito (Ctrl+B)">N</button>
+  <button class="fmt-i" onclick="toggleFormat('italic')" title="Itálico (Ctrl+I)">I</button>
+  <button class="fmt-u" onclick="toggleFormat('underline')" title="Sublinhado (Ctrl+U)">S</button>
+
+  <div class="sep"></div>
+
+  <button class="secondary" onclick="clearFormat()">Limpar formatação</button>
+
+  <span class="scope" id="scopeInfo">Toque num texto da tirinha para começar</span>
+</div>
+
+<div class="instructions">
+  <strong>Como usar:</strong> toque em qualquer texto para editá-lo — a alteração é copiada para as outras tirinhas. Para mudar fonte, tamanho, negrito ou itálico: selecione um trecho e use a barra acima; sem seleção, o ajuste vale para a linha inteira. Toque nas imagens (logo à esquerda, ilustração à direita) para trocá-las. Em <strong>Compartilhar</strong> você gera o PDF e envia direto para WhatsApp, Drive, e-mail ou qualquer app do aparelho.
+</div>
+
+<div class="page-wrap" id="pageWrap">
+  <div id="pages"></div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*">
+
+<div class="overlay" id="shareOverlay" onclick="if(event.target===this) closeShare()">
+  <div class="sheet">
+    <h2>Compartilhar tirinhas</h2>
+    <p>O PDF é gerado a partir da folha como ela está agora.</p>
+    <button class="opt" onclick="shareNative()">📤 Enviar para um app (WhatsApp, Drive, e-mail…)</button>
+    <button class="opt" onclick="shareWhatsApp()">💬 Baixar PDF e abrir o WhatsApp</button>
+    <button class="opt" onclick="downloadPdf()">⬇️ Baixar PDF (A4 paisagem)</button>
+    <button class="opt" onclick="downloadPng()">🖼️ Baixar imagem PNG</button>
+    <button class="opt" onclick="exportHtml()">✏️ Baixar arquivo editável (.html)</button>
+    <button class="close" onclick="closeShare()">Fechar</button>
+  </div>
+</div>
+
+<div class="status" id="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const LOGO_DEFAULT = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Icon-round-Information.svg/120px-Icon-round-Information.svg.png";
+const ART_DEFAULT = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Icon-round-Information.svg/120px-Icon-round-Information.svg.png";
+
+const stripTemplate = {
+  logo: LOGO_DEFAULT,
+  art: ART_DEFAULT,
+  line1: "CEMEI VILA DA PAZ – TURMA DO BARQUINHO / PROFESSORA R2 PAULA",
+  line2: "OBA! CHEGOU A IARA PARA PROTEGER NOSSOS RIOS.",
+  line3: "IARA FOI DESENHADA COM TINTA GUACHE NO PAPEL A3 E",
+  line4: "SEU ROSTO PINTADO COM LÁPIS DE COR E CABELOS COLADOS COM LÃ COLORIDA."
+};
+
+let currentImgRole = null;
+let activeField = null;
+let savedRange = null;
+const TOTAL_STRIPS = 4;
+
+/* ---------- montagem ---------- */
+
+function createStrip(data) {
+  const strip = document.createElement('div');
+  strip.className = 'strip';
+  strip.innerHTML = `
+    <div class="logo-box" data-role="logo" onclick="chooseImage(this)">
+      <img src="${data.logo}" alt="logo" crossorigin="anonymous">
+      <span class="img-hint">toque p/ trocar</span>
+    </div>
+    <div class="text-box">
+      <div class="line1 sync-text" data-field="line1" contenteditable="true">${data.line1}</div>
+      <div class="line2 sync-text" data-field="line2" contenteditable="true">${data.line2}</div>
+      <div class="line3 sync-text" data-field="line3" contenteditable="true">${data.line3}</div>
+      <div class="line4 sync-text" data-field="line4" contenteditable="true">${data.line4}</div>
+    </div>
+    <div class="art-box" data-role="art" onclick="chooseImage(this)">
+      <img src="${data.art}" alt="ilustração" crossorigin="anonymous">
+      <span class="img-hint">toque p/ trocar</span>
+    </div>
+  `;
+  return strip;
+}
+
+function buildSinglePage(data) {
+  const pagesDiv = document.getElementById('pages');
+  pagesDiv.innerHTML = '';
+  const page = document.createElement('div');
+  page.className = 'page';
+  for (let i = 0; i < TOTAL_STRIPS; i++) page.appendChild(createStrip(data));
+  pagesDiv.appendChild(page);
+  activeField = null;
+  savedRange = null;
+  updateScopeInfo();
+  attachSyncListeners();
+  fitPage();
+}
+
+/* ---------- responsividade da folha ---------- */
+
+function fitPage() {
+  const wrap = document.getElementById('pageWrap');
+  const page = document.querySelector('.page');
+  if (!wrap || !page) return;
+  page.style.transform = 'none';
+  const available = wrap.clientWidth;
+  const scale = Math.min(1, available / page.offsetWidth);
+  page.style.transform = 'scale(' + scale + ')';
+  wrap.style.height = (page.offsetHeight * scale + 20) + 'px';
+}
+window.addEventListener('resize', fitPage);
+window.addEventListener('orientationchange', fitPage);
+
+/* ---------- imagens ---------- */
+
+function chooseImage(box) {
+  currentImgRole = box.getAttribute('data-role');
+  document.getElementById('fileInput').click();
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file && currentImgRole) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      document.querySelectorAll('.strip [data-role="' + currentImgRole + '"] img').forEach(img => {
+        img.removeAttribute('crossorigin');
+        img.src = evt.target.result;
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  e.target.value = '';
+});
+
+/* ---------- sincronização ---------- */
+
+function syncField(field) {
+  if (!field) return;
+  const name = field.getAttribute('data-field');
+  const html = field.innerHTML;
+  const css = field.getAttribute('style') || '';
+  document.querySelectorAll('.sync-text[data-field="' + name + '"]').forEach(other => {
+    if (other !== field) {
+      other.innerHTML = html;
+      if (css) other.setAttribute('style', css); else other.removeAttribute('style');
+    }
+  });
+}
+
+function attachSyncListeners() {
+  document.querySelectorAll('.sync-text').forEach(el => {
+    el.addEventListener('input', function() { syncField(this); });
+    el.addEventListener('focus', function() { activeField = this; updateScopeInfo(); });
+  });
+}
+
+/* ---------- seleção ---------- */
+
+document.addEventListener('selectionchange', function() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  const node = range.commonAncestorContainer;
+  const el = node.nodeType === 1 ? node : node.parentElement;
+  const field = el && el.closest ? el.closest('.sync-text') : null;
+  if (field) {
+    activeField = field;
+    savedRange = range.cloneRange();
+    updateScopeInfo();
+  }
+});
+
+function restoreSelection() {
+  if (!activeField) return false;
+  activeField.focus();
+  if (savedRange) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+  }
+  return true;
+}
+
+function hasTextSelection() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !activeField) return false;
+  const c = sel.getRangeAt(0).commonAncestorContainer;
+  const el = c.nodeType === 1 ? c : c.parentElement;
+  return activeField.contains(el);
+}
+
+function updateScopeInfo() {
+  const info = document.getElementById('scopeInfo');
+  if (!activeField) { info.textContent = 'Toque num texto da tirinha para começar'; return; }
+  const n = activeField.getAttribute('data-field').replace('line', '');
+  info.textContent = hasTextSelection()
+    ? 'Aplicando ao trecho selecionado (linha ' + n + ')'
+    : 'Aplicando à linha ' + n + ' inteira';
+}
+
+/* ---------- formatação ---------- */
+
+function applyStyle(prop, value) {
+  if (!restoreSelection()) { toast('Toque primeiro no texto que você quer formatar.'); return; }
+  if (hasTextSelection()) {
+    const sel = window.getSelection();
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.style[prop] = value;
+    try { range.surroundContents(span); }
+    catch (err) { span.appendChild(range.extractContents()); range.insertNode(span); }
+    sel.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    sel.addRange(newRange);
+    savedRange = newRange.cloneRange();
+  } else {
+    activeField.style[prop] = value;
+  }
+  syncField(activeField);
+  updateScopeInfo();
+}
+
+function toggleFormat(cmd) {
+  if (!restoreSelection()) { toast('Toque primeiro no texto que você quer formatar.'); return; }
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  if (hasTextSelection()) {
+    document.execCommand(cmd, false, null);
+  } else if (cmd === 'bold') {
+    activeField.style.fontWeight = activeField.style.fontWeight === 'bold' ? 'normal' : 'bold';
+  } else if (cmd === 'italic') {
+    activeField.style.fontStyle = activeField.style.fontStyle === 'italic' ? 'normal' : 'italic';
+  } else if (cmd === 'underline') {
+    activeField.style.textDecoration = activeField.style.textDecoration === 'underline' ? 'none' : 'underline';
+  }
+  syncField(activeField);
+}
+
+function clearFormat() {
+  if (!restoreSelection()) return;
+  if (hasTextSelection()) {
+    document.execCommand('removeFormat', false, null);
+  } else {
+    activeField.removeAttribute('style');
+    activeField.innerHTML = activeField.textContent;
+  }
+  syncField(activeField);
+}
+
+const sizeSelect = document.getElementById('fontSize');
+[8,9,10,11,12,13,14,16,18,20,22,24,28,32,36,42,48].forEach(s => {
+  const opt = document.createElement('option');
+  opt.value = s + 'px';
+  opt.textContent = s;
+  sizeSelect.appendChild(opt);
+});
+
+document.getElementById('fontFamily').addEventListener('change', function() {
+  if (this.value) applyStyle('fontFamily', this.value);
+  this.selectedIndex = 0;
+});
+sizeSelect.addEventListener('change', function() {
+  if (this.value) applyStyle('fontSize', this.value);
+  this.selectedIndex = 0;
+});
+
+document.addEventListener('keydown', function(e) {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const key = e.key.toLowerCase();
+  if (['b','i','u'].includes(key)) {
+    const node = window.getSelection().anchorNode;
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+    if (el && el.closest && el.closest('.sync-text')) {
+      e.preventDefault();
+      toggleFormat(key === 'b' ? 'bold' : key === 'i' ? 'italic' : 'underline');
+    }
+  }
+});
+
+/* ---------- impressão ---------- */
+
+function printSheet() {
+  const page = document.querySelector('.page');
+  const prev = page.style.transform;
+  page.style.transform = 'none';
+  window.print();
+  setTimeout(() => { page.style.transform = prev; fitPage(); }, 500);
+}
+
+/* ---------- compartilhamento ---------- */
+
+function toast(msg, ms) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms || 3500);
+}
+
+function openShare() { document.getElementById('shareOverlay').classList.add('open'); }
+function closeShare() { document.getElementById('shareOverlay').classList.remove('open'); }
+
+async function renderCanvas() {
+  if (typeof html2canvas === 'undefined') throw new Error('offline');
+  const page = document.querySelector('.page');
+  const prev = page.style.transform;
+  page.style.transform = 'none';
+  const canvas = await html2canvas(page, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  page.style.transform = prev;
+  fitPage();
+  return canvas;
+}
+
+async function makePdfBlob() {
+  const canvas = await renderCanvas();
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 297, 210);
+  return pdf.output('blob');
+}
+
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+async function shareNative() {
+  try {
+    toast('Gerando o PDF…', 8000);
+    const blob = await makePdfBlob();
+    const file = new File([blob], 'tirinhas-cemei.pdf', { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Tirinhas CEMEI',
+        text: 'Tirinhas para impressão — A4 paisagem, 4 por folha.'
+      });
+      closeShare();
+      toast('Pronto!');
+    } else {
+      saveBlob(blob, 'tirinhas-cemei.pdf');
+      closeShare();
+      toast('Este navegador não abre o menu de apps. O PDF foi baixado — anexe-o no app que quiser.', 6000);
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') { toast('Compartilhamento cancelado.'); return; }
+    toast('Não consegui gerar o PDF aqui. Use "Imprimir / Salvar PDF".', 6000);
+  }
+}
+
+async function shareWhatsApp() {
+  try {
+    toast('Gerando o PDF…', 8000);
+    const blob = await makePdfBlob();
+    saveBlob(blob, 'tirinhas-cemei.pdf');
+    closeShare();
+    toast('PDF baixado. Anexe-o na conversa do WhatsApp.', 6000);
+    setTimeout(() => {
+      window.open('https://wa.me/?text=' + encodeURIComponent('Segue o arquivo das tirinhas (PDF em anexo).'), '_blank');
+    }, 900);
+  } catch (err) {
+    toast('Não consegui gerar o PDF aqui. Use "Imprimir / Salvar PDF".', 6000);
+  }
+}
+
+async function downloadPdf() {
+  try {
+    toast('Gerando o PDF…', 8000);
+    const blob = await makePdfBlob();
+    saveBlob(blob, 'tirinhas-cemei.pdf');
+    closeShare();
+    toast('PDF salvo.');
+  } catch (err) {
+    toast('Não consegui gerar o PDF aqui. Use "Imprimir / Salvar PDF".', 6000);
+  }
+}
+
+async function downloadPng() {
+  try {
+    toast('Gerando a imagem…', 8000);
+    const canvas = await renderCanvas();
+    canvas.toBlob(b => { saveBlob(b, 'tirinhas-cemei.png'); closeShare(); toast('Imagem salva.'); }, 'image/png');
+  } catch (err) {
+    toast('Não consegui gerar a imagem neste navegador.', 5000);
+  }
+}
+
+function exportHtml() {
+  const clone = document.documentElement.cloneNode(true);
+  const page = clone.querySelector('.page');
+  if (page) page.style.transform = '';
+  const wrap = clone.querySelector('#pageWrap');
+  if (wrap) wrap.style.height = '';
+  const overlay = clone.querySelector('#shareOverlay');
+  if (overlay) overlay.classList.remove('open');
+  const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+  saveBlob(new Blob([html], { type: 'text/html' }), 'tirinhas-cemei-editavel.html');
+  closeShare();
+  toast('Arquivo editável salvo — pode enviar para o Drive ou WhatsApp.', 5000);
+}
+
+/* ---------- início ---------- */
+
+function resetAll() {
+  if (confirm('Isso vai apagar todas as edições e recriar as 4 tirinhas padrão. Continuar?')) {
+    buildSinglePage(stripTemplate);
+  }
+}
+
+if (document.querySelector('#pages .strip')) {
+  // arquivo exportado: mantém o conteúdo salvo
+  attachSyncListeners();
+  fitPage();
+} else {
+  buildSinglePage(stripTemplate);
+}
+window.addEventListener('load', fitPage);
+</script>
+
+</body>
+</html>
